@@ -11,32 +11,19 @@ out/
 build/
 
 # production
-/dist
+dist/
 
 # testing
-/coverage
+coverage/
 
-# misc
-.DS_Store
-*.pem
-
-# debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# local env files
-.env*.local
+# local files
 .env
+.env*.local
+*.pem
 
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
 # Vercel
-.vercel
-
-# IDE
-.vscode/
-.idea/
+.vercel/

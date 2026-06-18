@@ -6,7 +6,9 @@ export const metadata: Metadata = {
   description: 'AK/SK gateway request builder'
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
       <body>{children}</body>

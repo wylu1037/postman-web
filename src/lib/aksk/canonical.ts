@@ -1,8 +1,10 @@
 const textEncoder = new TextEncoder();
 
 export function rfc3986Encode(value: string): string {
-  return encodeURIComponent(value)
-    .replace(/[!'()*]/g, (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase());
+  return encodeURIComponent(value).replace(
+    /[!'()*]/g,
+    (char) => '%' + char.charCodeAt(0).toString(16).toUpperCase()
+  );
 }
 
 export function percentDecode(value: string): string {
@@ -36,20 +38,32 @@ export function canonicalQuery(rawQuery?: string | null): string {
       rfc3986Encode(percentDecode(rawValue))
     ]);
   }
-  pairs.sort(([ak, av], [bk, bv]) => ak === bk ? av.localeCompare(bv) : ak.localeCompare(bk));
+  pairs.sort(([ak, av], [bk, bv]) =>
+    ak === bk ? av.localeCompare(bv) : ak.localeCompare(bk)
+  );
   return pairs.map(([key, value]) => key + '=' + value).join('&');
 }
 
 export function canonicalUri(pathname?: string | null): string {
   let path = pathname || '/';
   if (!path.startsWith('/')) path = '/' + path;
-  return path.split('/').map((part, index) => index === 0 ? '' : rfc3986Encode(part)).join('/');
+  return path
+    .split('/')
+    .map((part, index) => (index === 0 ? '' : rfc3986Encode(part)))
+    .join('/');
 }
 
-export async function sha256Hex(input?: Uint8Array | string | null): Promise<string> {
-  const bytes = typeof input === 'string' ? textEncoder.encode(input) : input ?? new Uint8Array();
+export async function sha256Hex(
+  input?: Uint8Array | string | null
+): Promise<string> {
+  const bytes =
+    typeof input === 'string'
+      ? textEncoder.encode(input)
+      : (input ?? new Uint8Array());
   const digest = await crypto.subtle.digest('SHA-256', bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
 }
 
 export function bodyBytes(body?: string | Uint8Array | null): Uint8Array {

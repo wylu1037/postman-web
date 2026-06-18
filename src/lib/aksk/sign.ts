@@ -1,8 +1,18 @@
-import { bodyBytes, canonicalQuery, canonicalUri, sha256Hex } from './canonical';
+import {
+  bodyBytes,
+  canonicalQuery,
+  canonicalUri,
+  sha256Hex
+} from './canonical';
 
 const textEncoder = new TextEncoder();
 
-declare const Buffer: { from(input: Uint8Array | string, encoding?: string): { toString(encoding: string): string } };
+declare const Buffer: {
+  from(
+    input: Uint8Array | string,
+    encoding?: string
+  ): { toString(encoding: string): string };
+};
 
 export type SignInput = {
   method: string;
@@ -31,7 +41,9 @@ function base64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString('base64');
 }
 
-export async function buildCanonicalRequest(input: Omit<SignInput, 'secretKey'>): Promise<{ canonicalRequest: string; bodyHash: string }> {
+export async function buildCanonicalRequest(
+  input: Omit<SignInput, 'secretKey'>
+): Promise<{ canonicalRequest: string; bodyHash: string }> {
   const parsed = new URL(input.url);
   const bodyHash = await sha256Hex(bodyBytes(input.body));
   const canonicalRequest = [
@@ -48,10 +60,28 @@ export async function buildCanonicalRequest(input: Omit<SignInput, 'secretKey'>)
 
 export async function signAkSk(input: SignInput): Promise<SignOutput> {
   const algorithm = input.algorithm ?? 'HmacSHA256';
-  const { canonicalRequest, bodyHash } = await buildCanonicalRequest({ ...input, algorithm });
+  const { canonicalRequest, bodyHash } = await buildCanonicalRequest({
+    ...input,
+    algorithm
+  });
   const canonicalHash = await sha256Hex(canonicalRequest);
   const stringToSign = algorithm + '\n' + canonicalHash;
-  const key = await crypto.subtle.importKey('raw', textEncoder.encode(input.secretKey), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', key, textEncoder.encode(stringToSign));
-  return { signature: base64(new Uint8Array(mac)), canonicalRequest, stringToSign, bodyHash };
+  const key = await crypto.subtle.importKey(
+    'raw',
+    textEncoder.encode(input.secretKey),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const mac = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    textEncoder.encode(stringToSign)
+  );
+  return {
+    signature: base64(new Uint8Array(mac)),
+    canonicalRequest,
+    stringToSign,
+    bodyHash
+  };
 }

@@ -37,7 +37,9 @@ function sm4KeyFromBase64(value?: string): Uint8Array {
 function normalizeFieldPath(path: string): string[] {
   const trimmed = path.trim();
   if (!trimmed || trimmed === '$') return [];
-  const noRoot = trimmed.startsWith('$.') ? trimmed.slice(2) : trimmed.replace(/^\$\./, '');
+  const noRoot = trimmed.startsWith('$.')
+    ? trimmed.slice(2)
+    : trimmed.replace(/^\$\./, '');
   return noRoot
     .replace(/\[\*\]/g, '.*')
     .replace(/\[(\d+)\]/g, '.$1')
@@ -45,21 +47,34 @@ function normalizeFieldPath(path: string): string[] {
     .filter(Boolean);
 }
 
-function encryptPathValue(root: unknown, segments: string[], encryptValue: (plain: string) => string): number {
+function encryptPathValue(
+  root: unknown,
+  segments: string[],
+  encryptValue: (plain: string) => string
+): number {
   if (segments.length === 0) return 0;
   const [head, ...tail] = segments;
   if (Array.isArray(root)) {
-    if (head === '*') return root.reduce((count, item) => count + encryptPathValue(item, tail, encryptValue), 0);
+    if (head === '*')
+      return root.reduce(
+        (count, item) => count + encryptPathValue(item, tail, encryptValue),
+        0
+      );
     const index = Number(head);
-    if (Number.isInteger(index) && index >= 0 && index < root.length) return encryptPathValue(root[index], tail, encryptValue);
-    return root.reduce((count, item) => count + encryptPathValue(item, segments, encryptValue), 0);
+    if (Number.isInteger(index) && index >= 0 && index < root.length)
+      return encryptPathValue(root[index], tail, encryptValue);
+    return root.reduce(
+      (count, item) => count + encryptPathValue(item, segments, encryptValue),
+      0
+    );
   }
   if (root == null || typeof root !== 'object') return 0;
   const obj = root as Record<string, unknown>;
   if (!(head in obj)) return 0;
   if (tail.length === 0) {
     const current = obj[head];
-    if (typeof current !== 'string') throw new Error('Field ' + head + ' must be a string before encryption');
+    if (typeof current !== 'string')
+      throw new Error('Field ' + head + ' must be a string before encryption');
     obj[head] = encryptValue(current);
     return 1;
   }
@@ -67,12 +82,21 @@ function encryptPathValue(root: unknown, segments: string[], encryptValue: (plai
 }
 
 function stripPem(pem: string): ArrayBuffer {
-  const body = pem.replace(/-----BEGIN [A-Z ]+-----/g, '').replace(/-----END [A-Z ]+-----/g, '').replace(/\s+/g, '');
+  const body = pem
+    .replace(/-----BEGIN [A-Z ]+-----/g, '')
+    .replace(/-----END [A-Z ]+-----/g, '')
+    .replace(/\s+/g, '');
   const bytes = fromBase64(body);
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+  return bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
 }
 
-async function wrapSessionKeyWithRsa(publicKeyPem: string, sessionKey: Uint8Array): Promise<Uint8Array> {
+async function wrapSessionKeyWithRsa(
+  publicKeyPem: string,
+  sessionKey: Uint8Array
+): Promise<Uint8Array> {
   const key = await crypto.subtle.importKey(
     'spki',
     stripPem(publicKeyPem),
@@ -80,10 +104,16 @@ async function wrapSessionKeyWithRsa(publicKeyPem: string, sessionKey: Uint8Arra
     false,
     ['encrypt']
   );
-  return new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, sessionKey));
+  return new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, sessionKey)
+  );
 }
 
-export async function encryptRequestBody(bodyText: string, config: CryptoForm, randomBytes: RandomBytes = defaultRandomBytes): Promise<EncryptionResult> {
+export async function encryptRequestBody(
+  bodyText: string,
+  config: CryptoForm,
+  randomBytes: RandomBytes = defaultRandomBytes
+): Promise<EncryptionResult> {
   if (!config.enabled) return { bodyText, headers: {} };
   if (config.algorithm === 'RSA_SM4' && config.scope === 'FIELD') {
     throw new Error('RSA+SM4 does not support field encryption');
@@ -98,23 +128,51 @@ export async function encryptRequestBody(bodyText: string, config: CryptoForm, r
   if (config.algorithm === 'SM4') {
     const sm4Key = sm4KeyFromBase64(config.sm4KeyBase64);
     if (config.scope === 'WHOLE') {
-      const env = encryptSm4GcmEnvelope(textEncoder.encode(bodyText), sm4Key, randomBytes(12));
+      const env = encryptSm4GcmEnvelope(
+        textEncoder.encode(bodyText),
+        sm4Key,
+        randomBytes(12)
+      );
       return { bodyText: wrapWholeBody(encodeEnvelope(env)), headers };
     }
-    const fields = config.fieldPaths?.map((item) => item.trim()).filter(Boolean) ?? [];
-    if (fields.length === 0) throw new Error('At least one field path is required for field encryption');
+    const fields =
+      config.fieldPaths?.map((item) => item.trim()).filter(Boolean) ?? [];
+    if (fields.length === 0)
+      throw new Error(
+        'At least one field path is required for field encryption'
+      );
     const root = JSON.parse(bodyText) as unknown;
     for (const fieldPath of fields) {
-      const count = encryptPathValue(root, normalizeFieldPath(fieldPath), (plain) => encodeEnvelope(encryptSm4GcmEnvelope(textEncoder.encode(plain), sm4Key, randomBytes(12))));
-      if (count === 0) throw new Error('Field path did not match: ' + fieldPath);
+      const count = encryptPathValue(
+        root,
+        normalizeFieldPath(fieldPath),
+        (plain) =>
+          encodeEnvelope(
+            encryptSm4GcmEnvelope(
+              textEncoder.encode(plain),
+              sm4Key,
+              randomBytes(12)
+            )
+          )
+      );
+      if (count === 0)
+        throw new Error('Field path did not match: ' + fieldPath);
     }
     return { bodyText: JSON.stringify(root), headers };
   }
 
-  if (!config.rsaPublicKeyPem?.trim()) throw new Error('RSA public key is required');
+  if (!config.rsaPublicKeyPem?.trim())
+    throw new Error('RSA public key is required');
   const sessionKey = randomBytes(16);
-  const env = encryptSm4GcmEnvelope(textEncoder.encode(bodyText), sessionKey, randomBytes(12));
-  const wrapped = await wrapSessionKeyWithRsa(config.rsaPublicKeyPem.trim(), sessionKey);
+  const env = encryptSm4GcmEnvelope(
+    textEncoder.encode(bodyText),
+    sessionKey,
+    randomBytes(12)
+  );
+  const wrapped = await wrapSessionKeyWithRsa(
+    config.rsaPublicKeyPem.trim(),
+    sessionKey
+  );
   headers['X-Encrypt-Key'] = toBase64Url(wrapped);
   headers['X-Encrypt-Key-Alg'] = 'RSA/ECB/OAEPWithSHA-256AndMGF1Padding';
   return { bodyText: wrapWholeBody(encodeEnvelope(env)), headers };

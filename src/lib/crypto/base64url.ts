@@ -1,4 +1,9 @@
-declare const Buffer: { from(input: Uint8Array | string, encoding?: string): { toString(encoding: string): string } & Uint8Array };
+declare const Buffer: {
+  from(
+    input: Uint8Array | string,
+    encoding?: string
+  ): { toString(encoding: string): string } & Uint8Array;
+};
 
 export function toBase64(bytes: Uint8Array): string {
   if (typeof btoa === 'function') {
@@ -18,10 +23,15 @@ export function fromBase64(value: string): Uint8Array {
 }
 
 export function toBase64Url(bytes: Uint8Array): string {
-  return toBase64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  return toBase64(bytes)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 export function fromBase64Url(value: string): Uint8Array {
-  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - value.length % 4) % 4);
+  const padded =
+    value.replace(/-/g, '+').replace(/_/g, '/') +
+    '='.repeat((4 - (value.length % 4)) % 4);
   return fromBase64(padded);
 }
