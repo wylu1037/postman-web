@@ -60,7 +60,7 @@ export async function sha256Hex(
     typeof input === 'string'
       ? textEncoder.encode(input)
       : (input ?? new Uint8Array());
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const digest = await crypto.subtle.digest('SHA-256', Uint8Array.from(bytes));
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, '0')
   ).join('');

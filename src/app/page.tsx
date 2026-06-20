@@ -3,13 +3,15 @@
 import { useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  Activity,
+  AlertTriangle,
   Braces,
+  Fingerprint,
   KeyRound,
   LockKeyhole,
   Play,
   RotateCcw,
-  Send,
-  ShieldCheck
+  Send
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -78,12 +80,14 @@ const defaults: FormValues = {
 };
 
 const controlClass =
-  'border-stone-300 bg-white text-stone-950 shadow-none focus-visible:border-stone-950 focus-visible:ring-2 focus-visible:ring-amber-200';
+  'border-zinc-300/90 bg-white/90 text-zinc-950 shadow-none placeholder:text-zinc-400 focus-visible:border-[#4f6f52] focus-visible:ring-[rgba(79,111,82,0.22)]';
 
-const segmentedListClass = 'h-full w-full bg-transparent p-1 text-stone-600';
+const monoControlClass = controlClass + ' font-mono text-[13px] leading-6';
+
+const segmentedListClass = 'h-full w-full bg-transparent p-1 text-zinc-500';
 
 const segmentedTriggerClass =
-  'h-full flex-1 rounded-sm text-sm font-medium after:hidden data-[state=active]:bg-white data-[state=active]:text-stone-950 data-[state=active]:shadow-sm';
+  'h-full flex-1 rounded-[5px] text-sm font-medium after:hidden data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-[0_1px_0_rgba(24,24,27,0.08)]';
 
 function parseExtraHeaders(input: string): ExtraHeader[] {
   return input
@@ -107,28 +111,103 @@ function jsonBlock(value: unknown): string {
 function Field({
   label,
   error,
+  hint,
   children
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-2">
-      <Label>{label}</Label>
+      <div className="flex items-end justify-between gap-3">
+        <Label className="text-[13px] font-semibold text-zinc-700">
+          {label}
+        </Label>
+        {hint ? <span className="text-xs text-zinc-500">{hint}</span> : null}
+      </div>
       {children}
-      {error ? <p className="text-xs text-red-700">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="text-xs text-red-700">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function CodePanel({ title, value }: { title: string; value: string }) {
+function PanelTitle({
+  step,
+  icon,
+  title,
+  meta
+}: {
+  step: string;
+  icon: React.ReactNode;
+  title: string;
+  meta: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 border-b border-zinc-200/80 pb-4">
+      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-950 font-mono text-xs font-semibold text-zinc-50">
+        {step}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 text-zinc-950">
+          <span className="text-zinc-500">{icon}</span>
+          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-zinc-500">{meta}</p>
+      </div>
+    </div>
+  );
+}
+
+function StatusPill({
+  label,
+  value,
+  live = false
+}: {
+  label: string;
+  value: string;
+  live?: boolean;
+}) {
+  return (
+    <span className="inline-flex min-h-8 items-center gap-2 rounded-md border border-zinc-200/80 bg-white/75 px-2.5 py-1 text-xs text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+      {live ? <span className="status-dot" aria-hidden="true" /> : null}
+      <span>{label}</span>
+      <span className="font-mono font-semibold text-zinc-900">{value}</span>
+    </span>
+  );
+}
+
+function CodePanel({
+  title,
+  value,
+  emptyText = '等待生成'
+}: {
+  title: string;
+  value: string;
+  emptyText?: string;
+}) {
+  const hasValue = value.trim().length > 0;
+
   return (
     <section className="grid gap-2">
-      <h3 className="text-sm font-semibold text-stone-800">{title}</h3>
-      <ScrollArea className="code-panel">
-        <pre>{value || ' '}</pre>
-      </ScrollArea>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
+        <span className="font-mono text-[11px] text-zinc-500">
+          {hasValue ? 'ready' : 'idle'}
+        </span>
+      </div>
+      <div className="code-shell">
+        <ScrollArea
+          className={'code-panel' + (hasValue ? '' : ' code-panel-empty')}
+        >
+          <pre>{hasValue ? value : emptyText}</pre>
+        </ScrollArea>
+      </div>
     </section>
   );
 }
@@ -154,7 +233,7 @@ export default function Home() {
             headers: built.headers,
             body: built.bodyText
           })
-        : '尚未生成请求',
+        : '',
     [built]
   );
 
@@ -221,24 +300,42 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-dvh px-4 py-5 text-stone-950 md:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-375 gap-5">
-        <header className="flex flex-col gap-4 border-stone-300/80 pb-5 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-stone-300 bg-white/70 px-3 py-1 text-xs font-medium text-stone-600">
-              <ShieldCheck className="size-3.5" /> API Gateway AK/SK
+    <main className="min-h-dvh px-3 py-4 text-zinc-950 sm:px-5 md:py-5 lg:px-8">
+      <div className="mx-auto grid max-w-[1500px] gap-5">
+        <header className="grid gap-4 border-b border-zinc-300/70 pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="min-w-0">
+            <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200/90 bg-white/75 px-3 py-1.5 text-xs font-medium text-zinc-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+              <Fingerprint className="size-3.5 text-[#4f6f52]" />
+              API Gateway AK/SK
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-stone-950 md:text-4xl">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-zinc-950 md:text-5xl">
               postman-web
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-              构造网关可验签的 HTTP 请求，按加密后的最终 body 生成签名。
+            <p className="mt-2 max-w-[62ch] text-sm leading-6 text-zinc-600">
+              加密后签名，生成可发送的网关请求。
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <StatusPill label="Method" value={values.method} />
+              <StatusPill
+                label="Crypto"
+                value={
+                  values.cryptoEnabled
+                    ? values.cryptoAlgorithm.replace('_', '+')
+                    : 'OFF'
+                }
+              />
+              <StatusPill
+                label="Output"
+                value={built ? 'READY' : 'IDLE'}
+                live={Boolean(built)}
+              />
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() => {
                 form.reset(defaults);
                 setBuilt(null);
@@ -251,12 +348,14 @@ export default function Home() {
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={form.handleSubmit(onBuild)}
             >
               <Braces className="size-4" /> 生成
             </Button>
             <Button
               type="button"
+              className="w-full sm:w-auto"
               onClick={form.handleSubmit(onSend)}
               disabled={isSending}
             >
@@ -270,20 +369,26 @@ export default function Home() {
           </div>
         </header>
         {error ? (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {error}
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800"
+          >
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+            <p>{error}</p>
           </div>
         ) : null}
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(360px,0.95fr)_minmax(360px,0.9fr)_minmax(420px,1.15fr)]">
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(340px,0.95fr)_minmax(320px,0.82fr)_minmax(420px,1.18fr)]">
           <form
             className="panel grid content-start gap-5 rounded-lg p-4 md:p-5"
             onSubmit={form.handleSubmit(onSend)}
           >
-            <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
-              <Send className="size-4 text-stone-500" />
-              <h2 className="text-base font-semibold">请求</h2>
-            </div>
-            <div className="grid grid-cols-[110px_1fr] gap-3">
+            <PanelTitle
+              step="01"
+              icon={<Send className="size-4" />}
+              title="请求"
+              meta="路由、认证和原始请求体"
+            />
+            <div className="grid gap-3 sm:grid-cols-[116px_minmax(0,1fr)]">
               <Field label="Method">
                 <Select
                   value={values.method}
@@ -291,7 +396,7 @@ export default function Home() {
                     form.setValue('method', method)
                   }
                 >
-                  <SelectTrigger className={controlClass + ' w-full'}>
+                  <SelectTrigger className={monoControlClass + ' w-full'}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" className="bg-white">
@@ -304,7 +409,11 @@ export default function Home() {
                 </Select>
               </Field>
               <Field label="URL" error={form.formState.errors.url?.message}>
-                <Input className={controlClass} {...form.register('url')} />
+                <Input
+                  className={monoControlClass}
+                  {...form.register('url')}
+                  spellCheck={false}
+                />
               </Field>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -312,13 +421,21 @@ export default function Home() {
                 label="X-Token"
                 error={form.formState.errors.token?.message}
               >
-                <Input className={controlClass} {...form.register('token')} />
+                <Input
+                  className={monoControlClass}
+                  {...form.register('token')}
+                  spellCheck={false}
+                />
               </Field>
               <Field
                 label="X-Order-Id"
                 error={form.formState.errors.orderId?.message}
               >
-                <Input className={controlClass} {...form.register('orderId')} />
+                <Input
+                  className={monoControlClass}
+                  {...form.register('orderId')}
+                  spellCheck={false}
+                />
               </Field>
             </div>
             <Field
@@ -326,48 +443,59 @@ export default function Home() {
               error={form.formState.errors.resourceId?.message}
             >
               <Input
-                className={controlClass}
+                className={monoControlClass}
                 {...form.register('resourceId')}
+                spellCheck={false}
               />
             </Field>
             <div className="grid gap-4 md:grid-cols-2">
               <Field label="AK" error={form.formState.errors.ak?.message}>
                 <Input
-                  className={controlClass}
+                  className={monoControlClass}
                   {...form.register('ak')}
                   autoComplete="off"
+                  spellCheck={false}
                 />
               </Field>
               <Field label="SK" error={form.formState.errors.sk?.message}>
                 <Input
-                  className={controlClass}
+                  className={monoControlClass}
                   {...form.register('sk')}
                   type="password"
                   autoComplete="off"
+                  spellCheck={false}
                 />
               </Field>
             </div>
             <Field label="额外 Header">
               <Textarea
-                className={controlClass + ' min-h-20'}
+                className={monoControlClass + ' min-h-24'}
                 {...form.register('extraHeadersText')}
+                spellCheck={false}
               />
             </Field>
             <Field label="Body">
               <Textarea
-                className={controlClass + ' min-h-64'}
+                className={monoControlClass + ' min-h-64'}
                 {...form.register('body')}
                 spellCheck={false}
               />
             </Field>
           </form>
           <section className="panel grid content-start gap-5 rounded-lg p-4 md:p-5">
-            <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
-              <LockKeyhole className="size-4 text-stone-500" />
-              <h2 className="text-base font-semibold">加密</h2>
-            </div>
-            <label className="flex items-center justify-between gap-3 rounded-md border border-stone-300 bg-white px-3 py-3 text-sm">
-              <span className="font-medium text-stone-800">启用请求加密</span>
+            <PanelTitle
+              step="02"
+              icon={<LockKeyhole className="size-4" />}
+              title="加密"
+              meta="SM4、RSA+SM4 和字段范围"
+            />
+            <label className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-3 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
+              <span className="grid gap-0.5">
+                <span className="font-medium text-zinc-800">启用请求加密</span>
+                <span className="text-xs text-zinc-500">
+                  {values.cryptoEnabled ? '参与请求构造' : '明文请求'}
+                </span>
+              </span>
               <Checkbox
                 checked={values.cryptoEnabled}
                 onCheckedChange={(checked) =>
@@ -389,7 +517,7 @@ export default function Home() {
                     form.setValue('cryptoScope', 'WHOLE');
                 }}
               >
-                <div className="segmented-control h-10 rounded-md border border-stone-300 bg-stone-100">
+                <div className="segmented-control h-11 rounded-md border border-zinc-300/90 bg-zinc-100/80">
                   <TabsList className={segmentedListClass}>
                     <TabsTrigger className={segmentedTriggerClass} value="SM4">
                       SM4
@@ -414,7 +542,7 @@ export default function Home() {
                   )
                 }
               >
-                <div className="segmented-control h-10 rounded-md border border-stone-300 bg-stone-100">
+                <div className="segmented-control h-11 rounded-md border border-zinc-300/90 bg-zinc-100/80">
                   <TabsList className={segmentedListClass}>
                     <TabsTrigger
                       className={segmentedTriggerClass}
@@ -433,7 +561,7 @@ export default function Home() {
                 </div>
               </Tabs>
               {rsaFieldUnavailable ? (
-                <p className="text-xs text-amber-800">
+                <p className="text-xs text-[#6f4e16]">
                   RSA+SM4 字段加密不可用，已由网关拒绝。
                 </p>
               ) : null}
@@ -441,15 +569,16 @@ export default function Home() {
             {values.cryptoAlgorithm === 'SM4' ? (
               <Field label="SM4 Key Base64">
                 <Input
-                  className={controlClass}
+                  className={monoControlClass}
                   {...form.register('sm4KeyBase64')}
                   placeholder="16 字节密钥的 Base64"
+                  spellCheck={false}
                 />
               </Field>
             ) : (
               <Field label="RSA Public Key PEM">
                 <Textarea
-                  className={controlClass + ' min-h-48'}
+                  className={monoControlClass + ' min-h-48'}
                   {...form.register('rsaPublicKeyPem')}
                   spellCheck={false}
                 />
@@ -459,38 +588,51 @@ export default function Home() {
             values.cryptoAlgorithm === 'SM4' ? (
               <Field label="字段路径">
                 <Textarea
-                  className={controlClass + ' min-h-28'}
+                  className={monoControlClass + ' min-h-28'}
                   {...form.register('fieldPathsText')}
                   spellCheck={false}
                 />
               </Field>
             ) : null}
-            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs leading-5 text-amber-950">
+            <div className="rounded-md border border-[#4f6f52]/20 bg-[#edf4ec] px-3 py-3 text-xs leading-5 text-[#2f3f31]">
               签名覆盖 method、path、query、AK、timestamp、nonce 和最终 body
               hash。
             </div>
           </section>
           <section className="grid gap-5">
             <div className="panel grid gap-4 rounded-lg p-4 md:p-5">
-              <div className="flex items-center gap-2 border-b border-stone-200 pb-3">
-                <KeyRound className="size-4 text-stone-500" />
-                <h2 className="text-base font-semibold">生成结果</h2>
-              </div>
-              <CodePanel title="Final Request" value={finalPreview} />
+              <PanelTitle
+                step="03"
+                icon={<KeyRound className="size-4" />}
+                title="生成结果"
+                meta="最终请求、CanonicalRequest 和 StringToSign"
+              />
+              <CodePanel
+                title="Final Request"
+                value={finalPreview}
+                emptyText="生成后显示 method、url、headers 与最终 body"
+              />
               <CodePanel
                 title="CanonicalRequest"
                 value={built?.debug.canonicalRequest ?? ''}
+                emptyText="等待请求签名材料"
               />
               <CodePanel
                 title="StringToSign"
                 value={built?.debug.stringToSign ?? ''}
+                emptyText="等待 canonical hash"
               />
             </div>
             <div className="panel grid gap-4 rounded-lg p-4 md:p-5">
-              <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-                <h2 className="text-base font-semibold">响应</h2>
+              <div className="flex items-start justify-between gap-3 border-b border-zinc-200/80 pb-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-4 text-zinc-500" />
+                  <h2 className="text-base font-semibold tracking-tight">
+                    响应
+                  </h2>
+                </div>
                 {response ? (
-                  <span className="rounded border border-stone-300 bg-white px-2 py-1 font-mono text-xs text-stone-700">
+                  <span className="rounded-md border border-zinc-200 bg-white px-2 py-1 font-mono text-xs text-zinc-700">
                     {response.status}
                   </span>
                 ) : null}
@@ -498,8 +640,13 @@ export default function Home() {
               <CodePanel
                 title="Headers"
                 value={response ? jsonBlock(response.headers) : ''}
+                emptyText="发送后显示响应 headers"
               />
-              <CodePanel title="Body" value={response?.body ?? ''} />
+              <CodePanel
+                title="Body"
+                value={response?.body ?? ''}
+                emptyText="发送后显示响应 body"
+              />
             </div>
           </section>
         </div>

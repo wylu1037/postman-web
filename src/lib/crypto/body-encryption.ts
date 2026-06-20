@@ -105,7 +105,11 @@ async function wrapSessionKeyWithRsa(
     ['encrypt']
   );
   return new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, sessionKey)
+    await crypto.subtle.encrypt(
+      { name: 'RSA-OAEP' },
+      key,
+      Uint8Array.from(sessionKey)
+    )
   );
 }
 
