@@ -149,7 +149,7 @@ function PanelTitle({
   meta: string;
 }) {
   return (
-    <div className="flex items-start gap-3 border-b border-zinc-200/80 pb-4">
+    <div className="flex items-start gap-3 pb-1">
       <span className="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-950 font-mono text-xs font-semibold text-zinc-50">
         {step}
       </span>
@@ -301,8 +301,8 @@ export default function Home() {
 
   return (
     <main className="min-h-dvh px-3 py-4 text-zinc-950 sm:px-5 md:py-5 lg:px-8">
-      <div className="mx-auto grid max-w-[1500px] gap-5">
-        <header className="grid gap-4 border-b border-zinc-300/70 pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+      <div className="mx-auto grid max-w-375 gap-5">
+        <header className="grid gap-4 pb-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="min-w-0">
             <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200/90 bg-white/75 px-3 py-1.5 text-xs font-medium text-zinc-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
               <Fingerprint className="size-3.5 text-[#4f6f52]" />
@@ -624,7 +624,7 @@ export default function Home() {
               />
             </div>
             <div className="panel grid gap-4 rounded-lg p-4 md:p-5">
-              <div className="flex items-start justify-between gap-3 border-b border-zinc-200/80 pb-4">
+              <div className="flex items-start justify-between gap-3 pb-1">
                 <div className="flex items-center gap-2">
                   <Activity className="size-4 text-zinc-500" />
                   <h2 className="text-base font-semibold tracking-tight">
