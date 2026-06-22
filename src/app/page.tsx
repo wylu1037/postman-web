@@ -137,29 +137,13 @@ function Field({
   );
 }
 
-function PanelTitle({
-  step,
-  icon,
-  title,
-  meta
-}: {
-  step: string;
-  icon: React.ReactNode;
-  title: string;
-  meta: string;
-}) {
+function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
-    <div className="flex items-start gap-3 pb-1">
-      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-zinc-950 font-mono text-xs font-semibold text-zinc-50">
-        {step}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 text-zinc-950">
-          <span className="text-zinc-500">{icon}</span>
-          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-        </div>
-        <p className="mt-1 text-xs leading-5 text-zinc-500">{meta}</p>
-      </div>
+    <div className="panel-title flex items-center gap-2 pb-1">
+      <span className="shrink-0 text-zinc-500">{icon}</span>
+      <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-zinc-950">
+        {title}
+      </h2>
     </div>
   );
 }
@@ -174,7 +158,7 @@ function StatusPill({
   live?: boolean;
 }) {
   return (
-    <span className="inline-flex min-h-8 items-center gap-2 rounded-md border border-zinc-200/80 bg-white/75 px-2.5 py-1 text-xs text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+    <span className="status-pill inline-flex min-h-8 items-center gap-2 rounded-md border border-zinc-200/80 bg-white/75 px-2.5 py-1 text-xs text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
       {live ? <span className="status-dot" aria-hidden="true" /> : null}
       <span>{label}</span>
       <span className="font-mono font-semibold text-zinc-900">{value}</span>
@@ -185,23 +169,28 @@ function StatusPill({
 function CodePanel({
   title,
   value,
-  emptyText = '等待生成'
+  emptyText = '等待生成',
+  motionKey = ''
 }: {
   title: string;
   value: string;
   emptyText?: string;
+  motionKey?: string;
 }) {
   const hasValue = value.trim().length > 0;
 
   return (
-    <section className="grid gap-2">
+    <section className="code-module grid gap-2">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
         <span className="font-mono text-[11px] text-zinc-500">
           {hasValue ? 'ready' : 'idle'}
         </span>
       </div>
-      <div className="code-shell">
+      <div
+        key={motionKey + title + String(hasValue)}
+        className={'code-shell' + (hasValue ? ' code-shell-ready' : '')}
+      >
         <ScrollArea
           className={'code-panel' + (hasValue ? '' : ' code-panel-empty')}
         >
@@ -217,6 +206,8 @@ export default function Home() {
   const [response, setResponse] = useState<ResponseState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [buildSerial, setBuildSerial] = useState(0);
+  const [responseSerial, setResponseSerial] = useState(0);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: defaults
@@ -263,6 +254,7 @@ export default function Home() {
       }
     });
     setBuilt(next);
+    setBuildSerial((serial) => serial + 1);
     return next;
   }
 
@@ -292,6 +284,7 @@ export default function Home() {
         headers,
         body: await res.text()
       });
+      setResponseSerial((serial) => serial + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求发送失败');
     } finally {
@@ -300,18 +293,23 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-dvh px-3 py-4 text-zinc-950 sm:px-5 md:py-5 lg:px-8">
+    <main className="workbench relative min-h-dvh w-full max-w-full overflow-x-hidden px-3 py-4 text-zinc-950 sm:px-5 md:py-5 lg:px-8">
       <div className="mx-auto grid max-w-375 gap-5">
-        <header className="grid gap-4 pb-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <header className="motion-rise grid gap-4 pb-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <div className="min-w-0">
-            <div className="inline-flex items-center gap-2 rounded-md border border-zinc-200/90 bg-white/75 px-3 py-1.5 text-xs font-medium text-zinc-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+            <div className="nav-chip inline-flex items-center gap-2 rounded-md border border-zinc-200/90 bg-white/75 px-3 py-1.5 text-xs font-medium text-zinc-600 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
               <Fingerprint className="size-3.5 text-[#4f6f52]" />
               API Gateway AK/SK
             </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-zinc-950 md:text-5xl">
-              postman-web
+            <h1 className="headline-reveal mt-3 max-w-5xl text-3xl font-semibold tracking-tight text-balance text-zinc-950 md:text-5xl">
+              postman
+              <span
+                aria-hidden="true"
+                className="inline-visual mx-2 inline-block h-7 w-20 align-middle md:h-9 md:w-28"
+              />
+              web
             </h1>
-            <p className="mt-2 max-w-[62ch] text-sm leading-6 text-zinc-600">
+            <p className="scrub-copy mt-2 max-w-[62ch] text-sm leading-6 text-zinc-600">
               加密后签名，生成可发送的网关请求。
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -377,17 +375,12 @@ export default function Home() {
             <p>{error}</p>
           </div>
         ) : null}
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(340px,0.95fr)_minmax(320px,0.82fr)_minmax(420px,1.18fr)]">
+        <div className="grid grid-flow-dense items-start gap-5 xl:grid-cols-[minmax(340px,0.95fr)_minmax(320px,0.82fr)_minmax(420px,1.18fr)]">
           <form
-            className="panel grid content-start gap-5 rounded-lg p-4 md:p-5"
+            className="panel motion-panel interactive-panel static-panel grid content-start gap-5 rounded-lg p-4 md:p-5"
             onSubmit={form.handleSubmit(onSend)}
           >
-            <PanelTitle
-              step="01"
-              icon={<Send className="size-4" />}
-              title="请求"
-              meta="路由、认证和原始请求体"
-            />
+            <PanelTitle icon={<Send className="size-4" />} title="请求" />
             <div className="grid gap-3 sm:grid-cols-[116px_minmax(0,1fr)]">
               <Field label="Method">
                 <Select
@@ -482,14 +475,12 @@ export default function Home() {
               />
             </Field>
           </form>
-          <section className="panel grid content-start gap-5 rounded-lg p-4 md:p-5">
+          <section className="panel motion-panel interactive-panel static-panel motion-delay-1 grid content-start gap-5 rounded-lg p-4 md:p-5">
             <PanelTitle
-              step="02"
               icon={<LockKeyhole className="size-4" />}
               title="加密"
-              meta="SM4、RSA+SM4 和字段范围"
             />
-            <label className="flex min-h-14 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-3 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
+            <label className="control-card flex min-h-14 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-3 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
               <span className="grid gap-0.5">
                 <span className="font-medium text-zinc-800">启用请求加密</span>
                 <span className="text-xs text-zinc-500">
@@ -599,31 +590,37 @@ export default function Home() {
               hash。
             </div>
           </section>
-          <section className="grid gap-5">
-            <div className="panel grid gap-4 rounded-lg p-4 md:p-5">
+          <section className="output-stack grid gap-5">
+            <div className="panel stack-card motion-panel interactive-panel static-panel motion-delay-2 grid gap-4 rounded-lg p-4 md:p-5">
               <PanelTitle
-                step="03"
                 icon={<KeyRound className="size-4" />}
                 title="生成结果"
-                meta="最终请求、CanonicalRequest 和 StringToSign"
               />
               <CodePanel
                 title="Final Request"
                 value={finalPreview}
                 emptyText="生成后显示 method、url、headers 与最终 body"
+                motionKey={String(buildSerial)}
               />
               <CodePanel
                 title="CanonicalRequest"
                 value={built?.debug.canonicalRequest ?? ''}
                 emptyText="等待请求签名材料"
+                motionKey={String(buildSerial)}
               />
               <CodePanel
                 title="StringToSign"
                 value={built?.debug.stringToSign ?? ''}
                 emptyText="等待 canonical hash"
+                motionKey={String(buildSerial)}
               />
             </div>
-            <div className="panel grid gap-4 rounded-lg p-4 md:p-5">
+            <div
+              className={
+                'panel stack-card motion-panel interactive-panel static-panel motion-delay-3 grid gap-4 rounded-lg p-4 md:p-5' +
+                (isSending ? ' panel-busy' : '')
+              }
+            >
               <div className="flex items-start justify-between gap-3 pb-1">
                 <div className="flex items-center gap-2">
                   <Activity className="size-4 text-zinc-500" />
@@ -641,11 +638,13 @@ export default function Home() {
                 title="Headers"
                 value={response ? jsonBlock(response.headers) : ''}
                 emptyText="发送后显示响应 headers"
+                motionKey={String(responseSerial)}
               />
               <CodePanel
                 title="Body"
                 value={response?.body ?? ''}
                 emptyText="发送后显示响应 body"
+                motionKey={String(responseSerial)}
               />
             </div>
           </section>
