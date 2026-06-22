@@ -409,6 +409,121 @@ textarea {
   color: rgba(245, 247, 242, 0.48);
 }
 
+.json-view-button {
+  min-height: 1.5rem;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 0 0.5rem;
+  color: #3f4f41;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.json-view-button:hover {
+  background: rgba(79, 111, 82, 0.12);
+  color: #243026;
+}
+
+.json-view-button[data-active='true'] {
+  background: #4f6f52;
+  color: #ffffff;
+  box-shadow: 0 1px 0 rgba(24, 24, 27, 0.12);
+}
+
+.json-tree-panel {
+  font-family:
+    'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', monospace;
+}
+
+.json-tree {
+  padding: 12px 14px 14px;
+}
+
+.json-tree-node {
+  margin: 1px 0;
+}
+
+.json-tree-summary {
+  display: flex;
+  min-height: 1.75rem;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 5px;
+  color: rgba(245, 247, 242, 0.92);
+}
+
+.json-tree-summary::-webkit-details-marker {
+  display: none;
+}
+
+.json-tree-summary::before {
+  content: '>';
+  color: rgba(245, 247, 242, 0.48);
+  font-size: 10px;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.json-tree-node[open] > .json-tree-summary::before {
+  transform: rotate(90deg);
+}
+
+.json-tree-summary:hover,
+.json-tree-leaf:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.json-tree-key {
+  color: rgba(245, 247, 242, 0.82);
+}
+
+.json-tree-meta {
+  color: rgba(245, 247, 242, 0.42);
+  font-size: 11px;
+}
+
+.json-tree-leaf {
+  display: flex;
+  min-height: 1.6rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 5px;
+}
+
+.json-tree-leaf .json-tree-key::after {
+  content: ':';
+  color: rgba(245, 247, 242, 0.34);
+}
+
+.json-tree-empty {
+  min-height: 1.6rem;
+  color: rgba(245, 247, 242, 0.42);
+}
+
+.json-token-string {
+  color: #b7e4c7;
+}
+
+.json-token-number {
+  color: #c4b5fd;
+}
+
+.json-token-boolean {
+  color: #f9d67a;
+}
+
+.json-token-null {
+  color: rgba(245, 247, 242, 0.48);
+}
+
 @keyframes panel-enter {
   from {
     opacity: 0;

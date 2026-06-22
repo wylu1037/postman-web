@@ -61,20 +61,22 @@ type ResponseState = {
   body: string;
 };
 
+type JsonViewMode = 'formatted' | 'tree';
+
 const defaults: FormValues = {
-  url: 'http://localhost:8080/api-gateway/apiHub',
-  method: 'POST',
-  ak: '',
-  sk: '',
-  token: '',
-  orderId: '',
-  resourceId: '',
+  url: 'http://api-test2.datanet.bj.cn/api-gateway/apiHub?page=1&size=10&status=online',
+  method: 'GET',
+  ak: 'AKX24jiHfJOAbrNJX0br78sU',
+  sk: 'U60Y70y6wtw6nL77CokuotlG6bjZFcTATkONaZzVhmC',
+  token: '923c3ba836e9b90f',
+  orderId: '202606171781687473649',
+  resourceId: 'fae2fbb1a21e1c61c163f63d582f2968',
   body: '{\n  "mobile": "13800000000",\n  "name": "wenyang"\n}',
   extraHeadersText: 'Content-Type: application/json',
   cryptoEnabled: true,
   cryptoAlgorithm: 'SM4',
   cryptoScope: 'WHOLE',
-  sm4KeyBase64: '',
+  sm4KeyBase64: '/oceR5WuUPLesWZPl9GbBg==',
   rsaPublicKeyPem: '',
   fieldPathsText: 'mobile\nname'
 };
@@ -106,6 +108,54 @@ function parseExtraHeaders(input: string): ExtraHeader[] {
 
 function jsonBlock(value: unknown): string {
   return JSON.stringify(value, null, 2);
+}
+
+function parseJson(value: string):
+  | {
+      ok: true;
+      parsed: unknown;
+      formatted: string;
+    }
+  | {
+      ok: false;
+      formatted: string;
+    } {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return { ok: true, parsed, formatted: jsonBlock(parsed) };
+  } catch {
+    return { ok: false, formatted: value };
+  }
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function jsonNodeSummary(value: unknown): string {
+  if (Array.isArray(value)) return String(value.length) + ' items';
+  if (isJsonObject(value)) return String(Object.keys(value).length) + ' keys';
+  if (value === null) return 'null';
+  return typeof value;
+}
+
+function jsonPrimitiveClass(value: unknown): string {
+  if (value === null) return 'json-token-null';
+  switch (typeof value) {
+    case 'string':
+      return 'json-token-string';
+    case 'number':
+      return 'json-token-number';
+    case 'boolean':
+      return 'json-token-boolean';
+    default:
+      return 'json-token-null';
+  }
+}
+
+function formatJsonPrimitive(value: unknown): string {
+  if (typeof value === 'string') return JSON.stringify(value);
+  return String(value);
 }
 
 function Field({
@@ -195,6 +245,128 @@ function CodePanel({
           className={'code-panel' + (hasValue ? '' : ' code-panel-empty')}
         >
           <pre>{hasValue ? value : emptyText}</pre>
+        </ScrollArea>
+      </div>
+    </section>
+  );
+}
+
+function JsonTree({
+  label = 'root',
+  value,
+  depth = 0
+}: {
+  label?: string;
+  value: unknown;
+  depth?: number;
+}) {
+  const left = depth * 14;
+
+  if (Array.isArray(value) || isJsonObject(value)) {
+    const entries = Array.isArray(value)
+      ? value.map((item, index) => [String(index), item] as const)
+      : Object.entries(value);
+
+    return (
+      <details className="json-tree-node" open={depth < 2}>
+        <summary className="json-tree-summary" style={{ paddingLeft: left }}>
+          <span className="json-tree-key">{label}</span>
+          <span className="json-tree-meta">{jsonNodeSummary(value)}</span>
+        </summary>
+        <div className="json-tree-children">
+          {entries.length > 0 ? (
+            entries.map(([key, item]) => (
+              <JsonTree key={key} label={key} value={item} depth={depth + 1} />
+            ))
+          ) : (
+            <div className="json-tree-empty" style={{ paddingLeft: left + 14 }}>
+              empty {Array.isArray(value) ? 'array' : 'object'}
+            </div>
+          )}
+        </div>
+      </details>
+    );
+  }
+
+  return (
+    <div className="json-tree-leaf" style={{ paddingLeft: left }}>
+      <span className="json-tree-key">{label}</span>
+      <span className={jsonPrimitiveClass(value)}>
+        {formatJsonPrimitive(value)}
+      </span>
+    </div>
+  );
+}
+
+function JsonPanel({
+  title,
+  value,
+  emptyText = '等待生成',
+  motionKey = ''
+}: {
+  title: string;
+  value: string;
+  emptyText?: string;
+  motionKey?: string;
+}) {
+  const [mode, setMode] = useState<JsonViewMode>('formatted');
+  const hasValue = value.trim().length > 0;
+  const parsed = useMemo(
+    () => (hasValue ? parseJson(value) : null),
+    [hasValue, value]
+  );
+  const isJson = parsed?.ok === true;
+  const showTree = isJson && mode === 'tree';
+  const displayValue = parsed?.formatted ?? '';
+
+  return (
+    <section className="code-module grid gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] text-zinc-500">
+            {hasValue ? (isJson ? 'json' : 'text') : 'idle'}
+          </span>
+          {isJson ? (
+            <div className="json-view-switch inline-flex rounded-md border border-[#c8d6c5] bg-[#eef3ed] p-0.5">
+              <button
+                type="button"
+                className="json-view-button"
+                data-active={mode === 'formatted'}
+                onClick={() => setMode('formatted')}
+              >
+                格式化
+              </button>
+              <button
+                type="button"
+                className="json-view-button"
+                data-active={mode === 'tree'}
+                onClick={() => setMode('tree')}
+              >
+                树形
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div
+        key={motionKey + title + String(hasValue)}
+        className={'code-shell' + (hasValue ? ' code-shell-ready' : '')}
+      >
+        <ScrollArea
+          className={
+            'code-panel' +
+            (hasValue ? '' : ' code-panel-empty') +
+            (showTree ? ' json-tree-panel' : '')
+          }
+        >
+          {showTree && parsed?.ok ? (
+            <div className="json-tree">
+              <JsonTree value={parsed.parsed} />
+            </div>
+          ) : (
+            <pre>{hasValue ? displayValue : emptyText}</pre>
+          )}
         </ScrollArea>
       </div>
     </section>
@@ -409,7 +581,7 @@ export default function Home() {
                 />
               </Field>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <Field
                 label="X-Token"
                 error={form.formState.errors.token?.message}
@@ -441,7 +613,7 @@ export default function Home() {
                 spellCheck={false}
               />
             </Field>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4">
               <Field label="AK" error={form.formState.errors.ak?.message}>
                 <Input
                   className={monoControlClass}
@@ -454,7 +626,6 @@ export default function Home() {
                 <Input
                   className={monoControlClass}
                   {...form.register('sk')}
-                  type="password"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -467,13 +638,15 @@ export default function Home() {
                 spellCheck={false}
               />
             </Field>
-            <Field label="Body">
-              <Textarea
-                className={monoControlClass + ' min-h-64'}
-                {...form.register('body')}
-                spellCheck={false}
-              />
-            </Field>
+            {values.method !== 'GET' ? (
+              <Field label="Body">
+                <Textarea
+                  className={monoControlClass + ' min-h-64'}
+                  {...form.register('body')}
+                  spellCheck={false}
+                />
+              </Field>
+            ) : null}
           </form>
           <section className="panel motion-panel interactive-panel static-panel motion-delay-1 grid content-start gap-5 rounded-lg p-4 md:p-5">
             <PanelTitle
@@ -596,7 +769,7 @@ export default function Home() {
                 icon={<KeyRound className="size-4" />}
                 title="生成结果"
               />
-              <CodePanel
+              <JsonPanel
                 title="Final Request"
                 value={finalPreview}
                 emptyText="生成后显示 method、url、headers 与最终 body"
@@ -640,7 +813,7 @@ export default function Home() {
                 emptyText="发送后显示响应 headers"
                 motionKey={String(responseSerial)}
               />
-              <CodePanel
+              <JsonPanel
                 title="Body"
                 value={response?.body ?? ''}
                 emptyText="发送后显示响应 body"
