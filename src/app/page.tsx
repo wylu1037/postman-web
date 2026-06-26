@@ -6,17 +6,26 @@ import {
   Activity,
   AlertTriangle,
   Braces,
+  Copy,
   Fingerprint,
+  Info,
   KeyRound,
   LockKeyhole,
   Play,
   RotateCcw,
-  Send
+  Send,
+  Terminal
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -84,12 +94,16 @@ const defaults: FormValues = {
 const controlClass =
   'border-zinc-300/90 bg-white/90 text-zinc-950 shadow-none placeholder:text-zinc-400 focus-visible:border-[#4f6f52] focus-visible:ring-[rgba(79,111,82,0.22)]';
 
-const monoControlClass = controlClass + ' font-mono text-[13px] leading-6';
+const monoControlClass =
+  controlClass + ' h-10 px-2.5 py-1.5 font-mono text-[12.5px] leading-5';
 
-const segmentedListClass = 'h-full w-full bg-transparent p-1 text-zinc-500';
+const segmentedListClass = 'h-full w-full bg-transparent p-0.5 text-zinc-500';
 
 const segmentedTriggerClass =
-  'h-full flex-1 rounded-[5px] text-sm font-medium after:hidden data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-[0_1px_0_rgba(24,24,27,0.08)]';
+  'h-full flex-1 rounded-[5px] bg-transparent text-[13px] font-semibold text-zinc-500 after:hidden data-[state=active]:bg-transparent data-[state=active]:text-zinc-950 data-[state=active]:shadow-none disabled:text-zinc-400 disabled:opacity-70';
+
+const headerActionButtonClass =
+  'h-8 min-w-16 gap-1.5 px-2.5 text-xs sm:w-auto [&_svg]:size-3.5';
 
 function parseExtraHeaders(input: string): ExtraHeader[] {
   return input
@@ -158,6 +172,33 @@ function formatJsonPrimitive(value: unknown): string {
   return String(value);
 }
 
+function shellQuote(value: string): string {
+  return "'" + value.replace(/'/g, "'\\''") + "'";
+}
+
+function buildCurlCommand(request: BuiltGatewayRequest): string {
+  const lines = [
+    'curl --request ' + request.method,
+    '  --url ' + shellQuote(request.url)
+  ];
+
+  for (const [key, value] of Object.entries(request.headers)) {
+    lines.push('  --header ' + shellQuote(key + ': ' + value));
+  }
+
+  if (
+    request.bodyText &&
+    request.method !== 'GET' &&
+    request.method !== 'HEAD'
+  ) {
+    lines.push('  --data-raw ' + shellQuote(request.bodyText));
+  }
+
+  return lines
+    .map((line, index) => (index === lines.length - 1 ? line : line + ' \\'))
+    .join('\n');
+}
+
 function Field({
   label,
   error,
@@ -170,9 +211,9 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-1.5">
       <div className="flex items-end justify-between gap-3">
-        <Label className="text-[13px] font-semibold text-zinc-700">
+        <Label className="text-[12px] leading-4 font-semibold text-zinc-600">
           {label}
         </Label>
         {hint ? <span className="text-xs text-zinc-500">{hint}</span> : null}
@@ -380,6 +421,8 @@ export default function Home() {
   const [isSending, setIsSending] = useState(false);
   const [buildSerial, setBuildSerial] = useState(0);
   const [responseSerial, setResponseSerial] = useState(0);
+  const [curlDialogOpen, setCurlDialogOpen] = useState(false);
+  const [curlCopied, setCurlCopied] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: defaults
@@ -397,6 +440,10 @@ export default function Home() {
             body: built.bodyText
           })
         : '',
+    [built]
+  );
+  const curlCommand = useMemo(
+    () => (built ? buildCurlCommand(built) : ''),
     [built]
   );
 
@@ -439,6 +486,17 @@ export default function Home() {
     }
   }
 
+  async function onCurl(values: FormValues) {
+    try {
+      setCurlCopied(false);
+      await build(values);
+      setCurlDialogOpen(true);
+    } catch (err) {
+      setBuilt(null);
+      setError(err instanceof Error ? err.message : '生成 curl 失败');
+    }
+  }
+
   async function onSend(values: FormValues) {
     try {
       setIsSending(true);
@@ -461,6 +519,20 @@ export default function Home() {
       setError(err instanceof Error ? err.message : '请求发送失败');
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function onCopyCurl() {
+    if (!curlCommand) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard) {
+      setError('当前浏览器不支持复制到剪贴板');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(curlCommand);
+      setCurlCopied(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '复制 curl 失败');
     }
   }
 
@@ -501,40 +573,49 @@ export default function Home() {
               />
             </div>
           </div>
-          <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+          <div className="flex flex-wrap gap-2 sm:justify-end lg:pb-1">
             <Button
               type="button"
               variant="outline"
-              className="w-full sm:w-auto"
+              size="xs"
+              className={headerActionButtonClass}
               onClick={() => {
                 form.reset(defaults);
                 setBuilt(null);
                 setResponse(null);
                 setError(null);
+                setCurlDialogOpen(false);
+                setCurlCopied(false);
               }}
             >
-              <RotateCcw className="size-4" /> 重置
+              <RotateCcw /> 重置
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="w-full sm:w-auto"
+              size="xs"
+              className={headerActionButtonClass}
               onClick={form.handleSubmit(onBuild)}
             >
-              <Braces className="size-4" /> 生成
+              <Braces /> 生成
             </Button>
             <Button
               type="button"
-              className="w-full sm:w-auto"
+              variant="outline"
+              size="xs"
+              className={headerActionButtonClass}
+              onClick={form.handleSubmit(onCurl)}
+            >
+              <Terminal /> curl
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              className={headerActionButtonClass}
               onClick={form.handleSubmit(onSend)}
               disabled={isSending}
             >
-              {isSending ? (
-                <Play className="size-4 animate-pulse" />
-              ) : (
-                <Send className="size-4" />
-              )}{' '}
-              发送
+              {isSending ? <Play className="animate-pulse" /> : <Send />} 发送
             </Button>
           </div>
         </header>
@@ -561,7 +642,10 @@ export default function Home() {
                     form.setValue('method', method)
                   }
                 >
-                  <SelectTrigger className={monoControlClass + ' w-full'}>
+                  <SelectTrigger
+                    size="sm"
+                    className={monoControlClass + ' w-full'}
+                  >
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent position="popper" className="bg-white">
@@ -653,20 +737,35 @@ export default function Home() {
               icon={<LockKeyhole className="size-4" />}
               title="加密"
             />
-            <label className="control-card flex min-h-14 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-3 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
-              <span className="grid gap-0.5">
-                <span className="font-medium text-zinc-800">启用请求加密</span>
-                <span className="text-xs text-zinc-500">
-                  {values.cryptoEnabled ? '参与请求构造' : '明文请求'}
-                </span>
-              </span>
-              <Checkbox
+            <div className="control-card flex min-h-10 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
+              <div className="flex min-w-0 items-center gap-2">
+                <Label
+                  htmlFor="crypto-enabled"
+                  className="cursor-pointer text-[13px] leading-4 font-semibold text-zinc-800"
+                >
+                  请求加密
+                </Label>
+                <button
+                  type="button"
+                  className="tooltip-trigger"
+                  data-tooltip={
+                    values.cryptoEnabled ? '参与请求构造' : '明文请求'
+                  }
+                  aria-label={
+                    values.cryptoEnabled ? '参与请求构造' : '明文请求'
+                  }
+                >
+                  <Info className="size-3.5" />
+                </button>
+              </div>
+              <Switch
+                id="crypto-enabled"
                 checked={values.cryptoEnabled}
                 onCheckedChange={(checked) =>
-                  form.setValue('cryptoEnabled', checked === true)
+                  form.setValue('cryptoEnabled', checked)
                 }
               />
-            </label>
+            </div>
             <Field label="算法">
               <Tabs
                 value={values.cryptoAlgorithm}
@@ -681,7 +780,12 @@ export default function Home() {
                     form.setValue('cryptoScope', 'WHOLE');
                 }}
               >
-                <div className="segmented-control h-11 rounded-md border border-zinc-300/90 bg-zinc-100/80">
+                <div
+                  className="segmented-control h-10 rounded-md border border-zinc-300/90 bg-zinc-100/80"
+                  data-active-index={
+                    values.cryptoAlgorithm === 'RSA_SM4' ? 1 : 0
+                  }
+                >
                   <TabsList className={segmentedListClass}>
                     <TabsTrigger className={segmentedTriggerClass} value="SM4">
                       SM4
@@ -706,7 +810,10 @@ export default function Home() {
                   )
                 }
               >
-                <div className="segmented-control h-11 rounded-md border border-zinc-300/90 bg-zinc-100/80">
+                <div
+                  className="segmented-control h-10 rounded-md border border-zinc-300/90 bg-zinc-100/80"
+                  data-active-index={values.cryptoScope === 'FIELD' ? 1 : 0}
+                >
                   <TabsList className={segmentedListClass}>
                     <TabsTrigger
                       className={segmentedTriggerClass}
@@ -823,6 +930,44 @@ export default function Home() {
           </section>
         </div>
       </div>
+      <Dialog
+        open={curlDialogOpen}
+        onOpenChange={(open) => {
+          setCurlDialogOpen(open);
+          if (!open) setCurlCopied(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>curl 命令</DialogTitle>
+          </DialogHeader>
+          <div
+            key={curlCommand}
+            className={'code-shell' + (curlCommand ? ' code-shell-ready' : '')}
+          >
+            <ScrollArea
+              className={
+                'code-panel curl-code-panel' +
+                (curlCommand ? '' : ' code-panel-empty')
+              }
+            >
+              <pre>{curlCommand || '等待生成 curl'}</pre>
+            </ScrollArea>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              className={headerActionButtonClass}
+              onClick={onCopyCurl}
+              disabled={!curlCommand}
+            >
+              <Copy /> {curlCopied ? '已复制' : '复制'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
