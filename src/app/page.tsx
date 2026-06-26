@@ -14,7 +14,8 @@ import {
   Play,
   RotateCcw,
   Send,
-  Terminal
+  Terminal,
+  UnlockKeyhole
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -44,6 +45,7 @@ import {
   type BuiltGatewayRequest,
   type ExtraHeader
 } from '@/lib/http/request-builder';
+import { decryptResponseBody } from '@/lib/crypto/body-decryption';
 
 const formSchema = z.object({
   url: z.string().url(),
@@ -343,12 +345,16 @@ function JsonPanel({
   title,
   value,
   emptyText = '等待生成',
-  motionKey = ''
+  motionKey = '',
+  action,
+  statusLabel
 }: {
   title: string;
   value: string;
   emptyText?: string;
   motionKey?: string;
+  action?: React.ReactNode;
+  statusLabel?: string;
 }) {
   const [mode, setMode] = useState<JsonViewMode>('formatted');
   const hasValue = value.trim().length > 0;
@@ -366,7 +372,7 @@ function JsonPanel({
         <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] text-zinc-500">
-            {hasValue ? (isJson ? 'json' : 'text') : 'idle'}
+            {statusLabel ?? (hasValue ? (isJson ? 'json' : 'text') : 'idle')}
           </span>
           {isJson ? (
             <div className="json-view-switch inline-flex rounded-md border border-[#c8d6c5] bg-[#eef3ed] p-0.5">
@@ -388,6 +394,7 @@ function JsonPanel({
               </button>
             </div>
           ) : null}
+          {action}
         </div>
       </div>
       <div
@@ -423,6 +430,9 @@ export default function Home() {
   const [responseSerial, setResponseSerial] = useState(0);
   const [curlDialogOpen, setCurlDialogOpen] = useState(false);
   const [curlCopied, setCurlCopied] = useState(false);
+  const [responseDecryptStatus, setResponseDecryptStatus] = useState<
+    string | null
+  >(null);
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: defaults
@@ -450,6 +460,7 @@ export default function Home() {
   async function build(values: FormValues) {
     setError(null);
     setResponse(null);
+    setResponseDecryptStatus(null);
     const next = await buildGatewayRequest({
       method: values.method,
       url: values.url,
@@ -514,6 +525,7 @@ export default function Home() {
         headers,
         body: await res.text()
       });
+      setResponseDecryptStatus(null);
       setResponseSerial((serial) => serial + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : '请求发送失败');
@@ -533,6 +545,28 @@ export default function Home() {
       setCurlCopied(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : '复制 curl 失败');
+    }
+  }
+
+  function onDecryptResponseBody() {
+    if (!response?.body) return;
+
+    try {
+      const decrypted = decryptResponseBody(response.body, values.sm4KeyBase64);
+      setResponse({
+        ...response,
+        body: decrypted.bodyText
+      });
+      setResponseDecryptStatus(
+        decrypted.decryptedCount > 1
+          ? '已解密 ' + decrypted.decryptedCount + ' 处'
+          : '已解密'
+      );
+      setResponseSerial((serial) => serial + 1);
+      setError(null);
+    } catch (err) {
+      setResponseDecryptStatus(null);
+      setError(err instanceof Error ? err.message : '响应 body 解密失败');
     }
   }
 
@@ -584,6 +618,7 @@ export default function Home() {
                 setBuilt(null);
                 setResponse(null);
                 setError(null);
+                setResponseDecryptStatus(null);
                 setCurlDialogOpen(false);
                 setCurlCopied(false);
               }}
@@ -925,6 +960,19 @@ export default function Home() {
                 value={response?.body ?? ''}
                 emptyText="发送后显示响应 body"
                 motionKey={String(responseSerial)}
+                statusLabel={responseDecryptStatus ?? undefined}
+                action={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="h-7 gap-1 px-2 text-[11px] [&_svg]:size-3"
+                    onClick={onDecryptResponseBody}
+                    disabled={!response?.body}
+                  >
+                    <UnlockKeyhole /> 解密
+                  </Button>
+                }
               />
             </div>
           </section>

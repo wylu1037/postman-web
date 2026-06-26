@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalQuery, canonicalUri, sha256Hex } from '@/lib/aksk/canonical';
 import { signAkSk } from '@/lib/aksk/sign';
+import { decryptResponseBody } from '@/lib/crypto/body-decryption';
 import { decodeEnvelope, encodeEnvelope } from '@/lib/crypto/envelope';
 import { decryptSm4GcmEnvelope, encryptSm4GcmEnvelope } from '@/lib/crypto/sm4';
 import { buildGatewayRequest } from '@/lib/http/request-builder';
@@ -161,5 +162,39 @@ describe('request encryption', () => {
         }
       })
     ).rejects.toThrow('RSA+SM4 does not support field encryption');
+  });
+
+  it('decrypts whole-body response data with the configured SM4 key', () => {
+    const encrypted = encodeEnvelope(
+      encryptSm4GcmEnvelope(enc.encode('{"ok":true}'), sm4Key, iv)
+    );
+
+    expect(
+      decryptResponseBody(
+        JSON.stringify({ data: encrypted }),
+        Buffer.from(sm4Key).toString('base64')
+      )
+    ).toEqual({
+      bodyText: '{"ok":true}',
+      decryptedCount: 1,
+      mode: 'whole'
+    });
+  });
+
+  it('decrypts field-level ENCv1 values in response JSON', () => {
+    const mobile = encodeEnvelope(
+      encryptSm4GcmEnvelope(enc.encode('13800000000'), sm4Key, iv)
+    );
+
+    expect(
+      decryptResponseBody(
+        JSON.stringify({ user: { mobile }, status: 'ok' }),
+        Buffer.from(sm4Key).toString('base64')
+      )
+    ).toEqual({
+      bodyText: JSON.stringify({ user: { mobile: '13800000000' }, status: 'ok' }),
+      decryptedCount: 1,
+      mode: 'field'
+    });
   });
 });
