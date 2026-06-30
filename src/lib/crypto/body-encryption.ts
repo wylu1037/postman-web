@@ -1,3 +1,5 @@
+import forge from 'node-forge';
+
 import { fromBase64, toBase64Url } from './base64url';
 import { encodeEnvelope, wrapWholeBody } from './envelope';
 import { encryptSm4GcmEnvelope } from './sm4';
@@ -81,36 +83,28 @@ function encryptPathValue(
   return encryptPathValue(obj[head], tail, encryptValue);
 }
 
-function stripPem(pem: string): ArrayBuffer {
-  const body = pem
-    .replace(/-----BEGIN [A-Z ]+-----/g, '')
-    .replace(/-----END [A-Z ]+-----/g, '')
-    .replace(/\s+/g, '');
-  const bytes = fromBase64(body);
-  return bytes.buffer.slice(
-    bytes.byteOffset,
-    bytes.byteOffset + bytes.byteLength
-  ) as ArrayBuffer;
+function bytesToBinary(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return binary;
+}
+
+function binaryToBytes(binary: string): Uint8Array {
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
 }
 
 async function wrapSessionKeyWithRsa(
   publicKeyPem: string,
   sessionKey: Uint8Array
 ): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey(
-    'spki',
-    stripPem(publicKeyPem),
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['encrypt']
-  );
-  return new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: 'RSA-OAEP' },
-      key,
-      Uint8Array.from(sessionKey)
-    )
-  );
+  const publicKey = forge.pki.publicKeyFromPem(publicKeyPem);
+  const encrypted = publicKey.encrypt(bytesToBinary(sessionKey), 'RSA-OAEP', {
+    md: forge.md.sha256.create(),
+    mgf1: {
+      md: forge.md.sha1.create()
+    }
+  });
+  return binaryToBytes(encrypted);
 }
 
 export async function encryptRequestBody(

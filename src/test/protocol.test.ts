@@ -74,7 +74,7 @@ describe('request encryption', () => {
     expect(new TextDecoder().decode(plain)).toBe('{"name":"wen"}');
   });
 
-  it('builds a whole-body encrypted request before signing without encryption metadata headers', async () => {
+  it('builds a whole-body encrypted request before signing with encryption metadata headers', async () => {
     const built = await buildGatewayRequest({
       method: 'POST',
       url: 'https://gateway.local/api-gateway/apiHub?b=2&a=1',
@@ -96,9 +96,9 @@ describe('request encryption', () => {
       randomBytes: (length) => iv.slice(0, length)
     });
 
-    expect(built.headers['X-Encrypt-Version']).toBeUndefined();
-    expect(built.headers['X-Encrypt-Mode']).toBeUndefined();
-    expect(built.headers['X-Encrypt-Alg']).toBeUndefined();
+    expect(built.headers['X-Encrypt-Version']).toBe('v1');
+    expect(built.headers['X-Encrypt-Mode']).toBe('1');
+    expect(built.headers['X-Encrypt-Alg']).toBe('0');
     expect(built.headers['X-Signature']).toMatch(/^[A-Za-z0-9+/]{43}=$/);
     expect(JSON.parse(built.bodyText)).toEqual({
       data: expect.stringMatching(/^ENCv1./)

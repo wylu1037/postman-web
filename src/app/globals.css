@@ -257,7 +257,80 @@ textarea {
   position: relative;
 }
 
+.panel-heading {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.module-heading {
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.module-status {
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+.form-label {
+  color: #52525b;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 1rem;
+}
+
+.form-hint {
+  color: #71717a;
+  font-size: 12px;
+  line-height: 1rem;
+}
+
+.form-error {
+  color: #b4232c;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.app-control {
+  height: 2.375rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.app-control-mono {
+  font-family:
+    'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, 'Liberation Mono', monospace;
+  font-size: 12.75px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+}
+
+textarea.app-control-mono {
+  padding-top: 0.6rem;
+  padding-bottom: 0.6rem;
+}
+
+.header-action-button {
+  height: 2rem;
+  padding-inline: 0.65rem;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.micro-action-button {
+  height: 1.75rem;
+  padding-inline: 0.5rem;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
 .control-card {
+  font-size: 13px;
   transition:
     border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -267,6 +340,67 @@ textarea {
 .control-card:hover {
   box-shadow: 0 16px 34px -30px rgba(79, 111, 82, 0.75);
   transform: translateY(-1px);
+}
+
+.control-card-label {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.15;
+}
+
+.extra-header-grid-labels {
+  color: #71717a;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1rem;
+}
+
+.extra-header-toolbar {
+  display: flex;
+  min-height: 1.9rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.extra-header-add-button {
+  margin-left: auto;
+}
+
+.extra-header-row {
+  transition:
+    border-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.extra-header-row:hover {
+  border-color: rgba(79, 111, 82, 0.28);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.extra-header-mobile-label {
+  color: #71717a;
+  font-size: 11.5px;
+  font-weight: 650;
+  line-height: 1rem;
+}
+
+.header-remove-button {
+  width: 2.25rem;
+  height: 2.375rem;
+}
+
+.empty-row,
+.utility-note {
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.response-status {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .tooltip-trigger {
@@ -532,8 +666,8 @@ textarea {
     var(--code);
   background-size: 42px 42px;
   color: var(--code-foreground);
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 12.5px;
+  line-height: 1.58;
 }
 
 .code-panel [data-slot='scroll-area-viewport'] {
@@ -542,9 +676,9 @@ textarea {
 
 .code-panel pre {
   margin: 0;
-  padding: 14px 16px 16px;
-  font-size: 12px;
-  line-height: 1.65;
+  padding: 15px 16px 16px;
+  font-size: 12.5px;
+  line-height: 1.58;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -602,7 +736,7 @@ textarea {
 }
 
 .json-tree {
-  padding: 12px 14px 14px;
+  padding: 13px 14px 14px;
 }
 
 .json-tree-node {
@@ -611,7 +745,7 @@ textarea {
 
 .json-tree-summary {
   display: flex;
-  min-height: 1.75rem;
+  min-height: 1.72rem;
   cursor: pointer;
   list-style: none;
   align-items: center;
@@ -627,7 +761,7 @@ textarea {
 .json-tree-summary::before {
   content: '>';
   color: rgba(245, 247, 242, 0.48);
-  font-size: 10px;
+  font-size: 10.5px;
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -646,12 +780,12 @@ textarea {
 
 .json-tree-meta {
   color: rgba(245, 247, 242, 0.42);
-  font-size: 11px;
+  font-size: 11.5px;
 }
 
 .json-tree-leaf {
   display: flex;
-  min-height: 1.6rem;
+  min-height: 1.65rem;
   align-items: center;
   gap: 0.5rem;
   border-radius: 5px;
@@ -663,7 +797,7 @@ textarea {
 }
 
 .json-tree-empty {
-  min-height: 1.6rem;
+  min-height: 1.65rem;
   color: rgba(245, 247, 242, 0.42);
 }
 

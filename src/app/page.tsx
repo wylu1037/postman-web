@@ -11,13 +11,15 @@ import {
   Info,
   KeyRound,
   LockKeyhole,
+  Minus,
   Play,
+  Plus,
   RotateCcw,
   Send,
   Terminal,
   UnlockKeyhole
 } from 'lucide-react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,10 +44,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
   buildGatewayRequest,
-  type BuiltGatewayRequest,
-  type ExtraHeader
+  type BuiltGatewayRequest
 } from '@/lib/http/request-builder';
 import { decryptResponseBody } from '@/lib/crypto/body-decryption';
+
+const extraHeaderSchema = z.object({
+  key: z.string(),
+  value: z.string()
+});
 
 const formSchema = z.object({
   url: z.string().url(),
@@ -56,7 +62,7 @@ const formSchema = z.object({
   orderId: z.string().min(1),
   resourceId: z.string().min(1),
   body: z.string(),
-  extraHeadersText: z.string(),
+  extraHeaders: z.array(extraHeaderSchema),
   cryptoEnabled: z.boolean(),
   cryptoAlgorithm: z.enum(['SM4', 'RSA_SM4']),
   cryptoScope: z.enum(['WHOLE', 'FIELD']),
@@ -84,7 +90,7 @@ const defaults: FormValues = {
   orderId: '202606171781687473649',
   resourceId: 'fae2fbb1a21e1c61c163f63d582f2968',
   body: '{\n  "mobile": "13800000000",\n  "name": "wenyang"\n}',
-  extraHeadersText: 'Content-Type: application/json',
+  extraHeaders: [{ key: 'Content-Type', value: 'application/json' }],
   cryptoEnabled: true,
   cryptoAlgorithm: 'SM4',
   cryptoScope: 'WHOLE',
@@ -94,33 +100,17 @@ const defaults: FormValues = {
 };
 
 const controlClass =
-  'border-zinc-300/90 bg-white/90 text-zinc-950 shadow-none placeholder:text-zinc-400 focus-visible:border-[#4f6f52] focus-visible:ring-[rgba(79,111,82,0.22)]';
+  'app-control border-zinc-300/90 bg-white/90 text-zinc-950 shadow-none placeholder:text-zinc-400 focus-visible:border-[#4f6f52] focus-visible:ring-[rgba(79,111,82,0.22)]';
 
-const monoControlClass =
-  controlClass + ' h-10 px-2.5 py-1.5 font-mono text-[12.5px] leading-5';
+const monoControlClass = controlClass + ' app-control-mono';
 
 const segmentedListClass = 'h-full w-full bg-transparent p-0.5 text-zinc-500';
 
 const segmentedTriggerClass =
-  'h-full flex-1 rounded-[5px] bg-transparent text-[13px] font-semibold text-zinc-500 after:hidden data-[state=active]:bg-transparent data-[state=active]:text-zinc-950 data-[state=active]:shadow-none disabled:text-zinc-400 disabled:opacity-70';
+  'h-full flex-1 rounded-[5px] bg-transparent text-[12.5px] font-semibold text-zinc-500 after:hidden data-[state=active]:bg-transparent data-[state=active]:text-zinc-950 data-[state=active]:shadow-none disabled:text-zinc-400 disabled:opacity-70';
 
 const headerActionButtonClass =
-  'h-8 min-w-16 gap-1.5 px-2.5 text-xs sm:w-auto [&_svg]:size-3.5';
-
-function parseExtraHeaders(input: string): ExtraHeader[] {
-  return input
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const index = line.indexOf(':');
-      if (index < 0) return { key: line, value: '' };
-      return {
-        key: line.slice(0, index).trim(),
-        value: line.slice(index + 1).trim()
-      };
-    });
-}
+  'header-action-button min-w-16 gap-1.5 sm:w-auto [&_svg]:size-3.5';
 
 function jsonBlock(value: unknown): string {
   return JSON.stringify(value, null, 2);
@@ -209,20 +199,18 @@ function Field({
 }: {
   label: string;
   error?: string;
-  hint?: string;
+  hint?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="grid gap-1.5">
       <div className="flex items-end justify-between gap-3">
-        <Label className="text-[12px] leading-4 font-semibold text-zinc-600">
-          {label}
-        </Label>
-        {hint ? <span className="text-xs text-zinc-500">{hint}</span> : null}
+        <Label className="form-label">{label}</Label>
+        {hint ? <span className="form-hint">{hint}</span> : null}
       </div>
       {children}
       {error ? (
-        <p role="alert" className="text-xs text-red-700">
+        <p role="alert" className="form-error">
           {error}
         </p>
       ) : null}
@@ -234,7 +222,7 @@ function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="panel-title flex items-center gap-2 pb-1">
       <span className="shrink-0 text-zinc-500">{icon}</span>
-      <h2 className="min-w-0 flex-1 text-base font-semibold tracking-tight text-zinc-950">
+      <h2 className="panel-heading min-w-0 flex-1 tracking-tight text-zinc-950">
         {title}
       </h2>
     </div>
@@ -251,7 +239,7 @@ function StatusPill({
   live?: boolean;
 }) {
   return (
-    <span className="status-pill inline-flex min-h-8 items-center gap-2 rounded-md border border-zinc-200/80 bg-white/75 px-2.5 py-1 text-xs text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+    <span className="status-pill inline-flex min-h-8 items-center gap-2 rounded-md border border-zinc-200/80 bg-white/75 px-2.5 py-1 text-zinc-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
       {live ? <span className="status-dot" aria-hidden="true" /> : null}
       <span>{label}</span>
       <span className="font-mono font-semibold text-zinc-900">{value}</span>
@@ -275,8 +263,8 @@ function CodePanel({
   return (
     <section className="code-module grid gap-2">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
-        <span className="font-mono text-[11px] text-zinc-500">
+        <h3 className="module-heading text-zinc-800">{title}</h3>
+        <span className="module-status font-mono text-zinc-500">
           {hasValue ? 'ready' : 'idle'}
         </span>
       </div>
@@ -369,9 +357,9 @@ function JsonPanel({
   return (
     <section className="code-module grid gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-sm font-semibold text-zinc-800">{title}</h3>
+        <h3 className="module-heading text-zinc-800">{title}</h3>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] text-zinc-500">
+          <span className="module-status font-mono text-zinc-500">
             {statusLabel ?? (hasValue ? (isJson ? 'json' : 'text') : 'idle')}
           </span>
           {isJson ? (
@@ -437,6 +425,14 @@ export default function Home() {
     resolver: zodResolver(formSchema),
     defaultValues: defaults
   });
+  const {
+    fields: extraHeaderFields,
+    append: appendExtraHeader,
+    remove: removeExtraHeader
+  } = useFieldArray({
+    control: form.control,
+    name: 'extraHeaders'
+  });
   const values = form.watch();
   const rsaFieldUnavailable =
     values.cryptoAlgorithm === 'RSA_SM4' && values.cryptoScope === 'FIELD';
@@ -470,7 +466,7 @@ export default function Home() {
       orderId: values.orderId,
       resourceId: values.resourceId,
       body: values.body,
-      extraHeaders: parseExtraHeaders(values.extraHeadersText),
+      extraHeaders: values.extraHeaders,
       crypto: {
         enabled: values.cryptoEnabled,
         algorithm: values.cryptoAlgorithm,
@@ -751,11 +747,83 @@ export default function Home() {
               </Field>
             </div>
             <Field label="额外 Header">
-              <Textarea
-                className={monoControlClass + ' min-h-24'}
-                {...form.register('extraHeadersText')}
-                spellCheck={false}
-              />
+              <div className="grid gap-2">
+                <div className="extra-header-toolbar">
+                  {extraHeaderFields.length > 0 ? (
+                    <div className="extra-header-grid-labels hidden flex-1 grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)_2.25rem] gap-2 px-2 sm:grid">
+                      <span>Key</span>
+                      <span>Value</span>
+                      <span className="sr-only">操作</span>
+                    </div>
+                  ) : (
+                    <span className="extra-header-grid-labels text-zinc-500">
+                      Key / Value
+                    </span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    className="micro-action-button extra-header-add-button gap-1 [&_svg]:size-3"
+                    onClick={() => appendExtraHeader({ key: '', value: '' })}
+                  >
+                    <Plus /> 添加
+                  </Button>
+                </div>
+                {extraHeaderFields.length > 0 ? (
+                  extraHeaderFields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="extra-header-row grid gap-2 rounded-md border border-zinc-200 bg-white/65 p-2 sm:grid-cols-[minmax(0,0.88fr)_minmax(0,1fr)_2.25rem] sm:items-end"
+                    >
+                      <div className="grid gap-1.5">
+                        <Label
+                          htmlFor={'extra-header-key-' + field.id}
+                          className="extra-header-mobile-label sm:sr-only"
+                        >
+                          Key
+                        </Label>
+                        <Input
+                          id={'extra-header-key-' + field.id}
+                          className={monoControlClass}
+                          {...form.register(`extraHeaders.${index}.key`)}
+                          placeholder="Header 名称"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label
+                          htmlFor={'extra-header-value-' + field.id}
+                          className="extra-header-mobile-label sm:sr-only"
+                        >
+                          Value
+                        </Label>
+                        <Input
+                          id={'extra-header-value-' + field.id}
+                          className={monoControlClass}
+                          {...form.register(`extraHeaders.${index}.value`)}
+                          placeholder="Header 值"
+                          spellCheck={false}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-xs"
+                        className="header-remove-button self-end border-zinc-200 bg-white text-zinc-600 hover:border-red-200 hover:bg-red-50 hover:text-red-700"
+                        aria-label={'移除 Header ' + String(index + 1)}
+                        onClick={() => removeExtraHeader(index)}
+                      >
+                        <Minus />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="empty-row rounded-md border border-dashed border-zinc-300 bg-white/55 px-3 py-4 text-zinc-500">
+                    暂无额外 Header
+                  </div>
+                )}
+              </div>
             </Field>
             {values.method !== 'GET' ? (
               <Field label="Body">
@@ -772,11 +840,11 @@ export default function Home() {
               icon={<LockKeyhole className="size-4" />}
               title="加密"
             />
-            <div className="control-card flex min-h-10 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-2 text-sm transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
+            <div className="control-card flex min-h-10 items-center justify-between gap-3 rounded-md border border-zinc-200 bg-white/80 px-3 py-2 transition-[border-color,background-color] duration-200 hover:border-[#4f6f52]/35">
               <div className="flex min-w-0 items-center gap-2">
                 <Label
                   htmlFor="crypto-enabled"
-                  className="cursor-pointer text-[13px] leading-4 font-semibold text-zinc-800"
+                  className="control-card-label cursor-pointer text-zinc-800"
                 >
                   请求加密
                 </Label>
@@ -900,7 +968,7 @@ export default function Home() {
                 />
               </Field>
             ) : null}
-            <div className="rounded-md border border-[#4f6f52]/20 bg-[#edf4ec] px-3 py-3 text-xs leading-5 text-[#2f3f31]">
+            <div className="utility-note rounded-md border border-[#4f6f52]/20 bg-[#edf4ec] px-3 py-3 text-[#2f3f31]">
               签名覆盖 method、path、query、AK、timestamp、nonce 和最终 body
               hash。
             </div>
@@ -939,12 +1007,10 @@ export default function Home() {
               <div className="flex items-start justify-between gap-3 pb-1">
                 <div className="flex items-center gap-2">
                   <Activity className="size-4 text-zinc-500" />
-                  <h2 className="text-base font-semibold tracking-tight">
-                    响应
-                  </h2>
+                  <h2 className="panel-heading tracking-tight">响应</h2>
                 </div>
                 {response ? (
-                  <span className="rounded-md border border-zinc-200 bg-white px-2 py-1 font-mono text-xs text-zinc-700">
+                  <span className="response-status rounded-md border border-zinc-200 bg-white px-2 py-1 font-mono text-zinc-700">
                     {response.status}
                   </span>
                 ) : null}
@@ -966,7 +1032,7 @@ export default function Home() {
                     type="button"
                     variant="outline"
                     size="xs"
-                    className="h-7 gap-1 px-2 text-[11px] [&_svg]:size-3"
+                    className="micro-action-button gap-1 [&_svg]:size-3"
                     onClick={onDecryptResponseBody}
                     disabled={!response?.body}
                   >

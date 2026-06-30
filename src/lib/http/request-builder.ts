@@ -5,11 +5,6 @@ import {
 } from '@/lib/crypto/body-encryption';
 
 const textEncoder = new TextEncoder();
-const omittedHeaderNames = new Set([
-  'x-encrypt-version',
-  'x-encrypt-mode',
-  'x-encrypt-alg'
-]);
 
 export type ExtraHeader = { key: string; value: string };
 
@@ -73,17 +68,6 @@ function normalizeExtraHeaders(headers: ExtraHeader[]): Record<string, string> {
   return out;
 }
 
-function omitHeaders(
-  headers: Record<string, string>,
-  names: Set<string>
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    if (!names.has(key.toLowerCase())) out[key] = value;
-  }
-  return out;
-}
-
 export async function buildGatewayRequest(
   input: GatewayRequestInput
 ): Promise<BuiltGatewayRequest> {
@@ -116,7 +100,7 @@ export async function buildGatewayRequest(
     'X-Token': input.token,
     'X-Order-Id': input.orderId,
     'X-Resource-Id': input.resourceId,
-    ...omitHeaders(encrypted.headers, omittedHeaderNames),
+    ...encrypted.headers,
     'X-AK': input.ak,
     'X-Timestamp': String(timestampMillis),
     'X-Nonce': nonce,
