@@ -68,6 +68,7 @@ const formSchema = z.object({
   cryptoScope: z.enum(['WHOLE', 'FIELD']),
   sm4KeyBase64: z.string(),
   rsaPublicKeyPem: z.string(),
+  rsaPrivateKeyPem: z.string(),
   fieldPathsText: z.string()
 });
 
@@ -96,6 +97,7 @@ const defaults: FormValues = {
   cryptoScope: 'WHOLE',
   sm4KeyBase64: '/oceR5WuUPLesWZPl9GbBg==',
   rsaPublicKeyPem: '',
+  rsaPrivateKeyPem: '',
   fieldPathsText: 'mobile\nname'
 };
 
@@ -189,6 +191,17 @@ function buildCurlCommand(request: BuiltGatewayRequest): string {
   return lines
     .map((line, index) => (index === lines.length - 1 ? line : line + ' \\'))
     .join('\n');
+}
+
+function headerValue(
+  headers: Record<string, string>,
+  name: string
+): string | undefined {
+  const expected = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === expected) return value;
+  }
+  return undefined;
 }
 
 function Field({
@@ -548,7 +561,12 @@ export default function Home() {
     if (!response?.body) return;
 
     try {
-      const decrypted = decryptResponseBody(response.body, values.sm4KeyBase64);
+      const decrypted = decryptResponseBody(response.body, {
+        algorithm: values.cryptoAlgorithm,
+        sm4KeyBase64: values.sm4KeyBase64,
+        rsaPrivateKeyPem: values.rsaPrivateKeyPem,
+        encryptKey: headerValue(response.headers, 'X-Encrypt-Key')
+      });
       setResponse({
         ...response,
         body: decrypted.bodyText
@@ -950,13 +968,26 @@ export default function Home() {
                 />
               </Field>
             ) : (
-              <Field label="RSA Public Key PEM">
-                <Textarea
-                  className={monoControlClass + ' min-h-48'}
-                  {...form.register('rsaPublicKeyPem')}
-                  spellCheck={false}
-                />
-              </Field>
+              <>
+                <Field label="RSA Public Key PEM">
+                  <Textarea
+                    className={monoControlClass + ' min-h-48'}
+                    {...form.register('rsaPublicKeyPem')}
+                    spellCheck={false}
+                  />
+                </Field>
+                <Field
+                  label="RSA Private Key PEM"
+                  hint="响应含 X-Encrypt-Key 时用于解密"
+                >
+                  <Textarea
+                    className={monoControlClass + ' min-h-48'}
+                    {...form.register('rsaPrivateKeyPem')}
+                    placeholder="-----BEGIN PRIVATE KEY-----"
+                    spellCheck={false}
+                  />
+                </Field>
+              </>
             )}
             {values.cryptoScope === 'FIELD' &&
             values.cryptoAlgorithm === 'SM4' ? (

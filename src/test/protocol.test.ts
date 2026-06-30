@@ -1,3 +1,4 @@
+import forge from 'node-forge';
 import { describe, expect, it } from 'vitest';
 import { canonicalQuery, canonicalUri, sha256Hex } from '@/lib/aksk/canonical';
 import { signAkSk } from '@/lib/aksk/sign';
@@ -174,6 +175,36 @@ describe('request encryption', () => {
         JSON.stringify({ data: encrypted }),
         Buffer.from(sm4Key).toString('base64')
       )
+    ).toEqual({
+      bodyText: '{"ok":true}',
+      decryptedCount: 1,
+      mode: 'whole'
+    });
+  });
+
+  it('decrypts RSA+SM4 whole-body response data with X-Encrypt-Key', () => {
+    const keyPair = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
+    const privateKeyPem = forge.pki.privateKeyToPem(keyPair.privateKey);
+    const wrapped = keyPair.publicKey.encrypt(
+      Array.from(sm4Key, (byte) => String.fromCharCode(byte)).join(''),
+      'RSA-OAEP',
+      {
+        md: forge.md.sha256.create(),
+        mgf1: {
+          md: forge.md.sha1.create()
+        }
+      }
+    );
+    const encrypted = encodeEnvelope(
+      encryptSm4GcmEnvelope(enc.encode('{"ok":true}'), sm4Key, iv)
+    );
+
+    expect(
+      decryptResponseBody(JSON.stringify({ data: encrypted }), {
+        algorithm: 'RSA_SM4',
+        rsaPrivateKeyPem: privateKeyPem,
+        encryptKey: Buffer.from(wrapped, 'binary').toString('base64url')
+      })
     ).toEqual({
       bodyText: '{"ok":true}',
       decryptedCount: 1,
